@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CSC360 Lab 03 – Filter Workbench</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f6;--card:#fff;--ink:#12263a;--mute:#5b6b7a;--line:#cfd9e1;--accent:#0e7c86;--warn:#d9822b;--ok:#1f8a4c;--bad:#c23b2b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a24;--card:#162634;--ink:#e6eef4;--mute:#93a5b5;--line:#2b4152;--accent:#3cc3cf}}
+:root[data-theme="dark"]{--bg:#0e1a24;--card:#162634;--ink:#e6eef4;--mute:#93a5b5;--line:#2b4152;--accent:#3cc3cf}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Source Sans 3",system-ui,sans-serif}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;margin:0;line-height:1.2}
+header{padding:28px 20px 8px;max-width:1100px;margin:auto}
+header h1{font-size:clamp(26px,5vw,40px)}
+header p{color:var(--mute);margin:6px 0 0;max-width:62ch}
+nav{max-width:1100px;margin:14px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{font:inherit;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--mute);padding:10px 14px;cursor:pointer}
+nav button[aria-selected=true]{color:var(--accent);border-color:var(--accent)}
+main{max-width:1100px;margin:auto;padding:20px}
+section[hidden]{display:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label{display:flex;flex-direction:column;font-size:14px;color:var(--mute);gap:4px}
+select,input[type=range]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px}
+input[type=range]{padding:0}
+button.b{font:inherit;font-weight:600;background:var(--accent);color:#fff;border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+button.b.alt{background:none;color:var(--accent);border:1px solid var(--accent)}
+:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+figure{margin:0}
+canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;border:1px solid var(--line);border-radius:4px;background:#000;display:block}
+figcaption{font-size:14px;margin-top:6px}
+figcaption b{display:block;font-size:15px}
+.psnr{color:var(--mute)}
+.note{color:var(--mute);font-size:14px}
+.ex{border-left:4px solid var(--accent)}
+.ex.demo{border-color:var(--warn)}
+.ex h3{font-size:18px;margin-bottom:6px}
+.opts{display:grid;gap:8px;margin:10px 0}
+.opts button{font:inherit;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer}
+.opts button.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 18%,var(--bg))}
+.opts button.no{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 18%,var(--bg))}
+.fb{margin:6px 0 0;font-size:15px}
+.tag{display:inline-block;font-size:13px;font-weight:600;padding:1px 8px;border-radius:10px;background:var(--warn);color:#fff;margin-right:6px}
+.tag.s{background:var(--accent)}
+ul.pts{margin:8px 0 0;padding-left:20px}
+.score{font-family:"Bricolage Grotesque",sans-serif;font-size:20px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Filter Workbench</h1>
+  <p>CSC360 Image Processing · Lab 03. Add noise to an image, filter it, and compare two filters side by side.</p>
+</header>
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-t="play">Playground</button>
+  <button role="tab" aria-selected="false" data-t="demo">Instructor demos</button>
+  <button role="tab" aria-selected="false" data-t="prac">Student exercises</button>
+  <button role="tab" aria-selected="false" data-t="ml">ML quiz</button>
+</nav>
+<main>
+<section id="play">
+  <div class="panel">
+    <div class="ctl">
+      <label>Test image<select id="img"><option value="shapes">Shapes</option><option value="bars">Bars &amp; gradient</option><option value="checker">Checkerboard</option></select></label>
+      <label>Noise type<select id="noise"><option value="none">None</option><option value="salt">Salt (white dots)</option><option value="pepper">Pepper (black dots)</option><option value="sp">Salt &amp; pepper</option><option value="gauss">Gaussian</option></select></label>
+      <label>Noise amount: <span id="amtv"></span><input type="range" id="amt" min="1" max="30" value="8"></label>
+      <label>Filter A<select id="fa"></select></label>
+      <label>Filter B<select id="fb"></select></label>
+      <label>Kernel size<select id="k"><option>3</option><option>5</option><option>7</option></select></label>
+      <label>Q (contraharmonic): <span id="qv"></span><input type="range" id="q" min="-3" max="3" step="0.5" value="1.5"></label>
+      <label>Border handling<select id="pad"><option value="zero">Zero padding</option><option value="mirror">Mirroring</option></select></label>
+    </div>
+    <p style="margin:12px 0 0"><button class="b alt" id="renoise">New random noise</button></p>
+  </div>
+  <div class="figs">
+    <figure><canvas id="c0" width="128" height="128"></canvas><figcaption><b>Original</b></figcaption></figure>
+    <figure><canvas id="c1" width="128" height="128"></canvas><figcaption><b>Noisy input</b><span class="psnr" id="p1"></span></figcaption></figure>
+    <figure><canvas id="c2" width="128" height="128"></canvas><figcaption><b id="la"></b><span class="psnr" id="p2"></span></figcaption></figure>
+    <figure><canvas id="c3" width="128" height="128"></canvas><figcaption><b id="lb"></b><span class="psnr" id="p3"></span></figcaption></figure>
+  </div>
+  <p class="note">PSNR compares a result with the clean original (higher = closer, in dB). It is not shown for edge filters (Sobel, Laplacian of Gaussian), whose goal is different.</p>
+</section>
+<section id="demo" hidden></section>
+<section id="prac" hidden></section>
+<section id="ml" hidden></section>
+</main>
+<script>
+const N=128;
+const FILTERS={mean:"Mean",gauss:"Gaussian",sobel:"Sobel (edges)",log:"Laplacian of Gaussian",harm:"Harmonic mean",contra:"Contraharmonic",geo:"Geometric mean",median:"Median",max:"Max",min:"Min",mid:"Midpoint"};
+const $=id=>document.getElementById(id);
+let seed=7,orig,noisy;
+function rnd(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}
+function gn(){return Math.sqrt(-2*Math.log(1-rnd()))*Math.cos(2*Math.PI*rnd())}
+for(const id of["fa","fb"])$(id).innerHTML=Object.entries(FILTERS).map(([v,t])=>`<option value="${v}">${t}</option>`).join("");
+
+function makeImage(type){
+  const c=document.createElement("canvas");c.width=c.height=N;const g=c.getContext("2d");
+  if(type==="shapes"){g.fillStyle="#5a5a5a";g.fillRect(0,0,N,N);g.fillStyle="#f0f0f0";g.beginPath();g.arc(44,46,26,0,7);g.fill();g.fillStyle="#1c1c1c";g.fillRect(70,20,42,36);g.fillStyle="#bdbdbd";g.beginPath();g.moveTo(20,114);g.lineTo(60,70);g.lineTo(100,114);g.fill();g.strokeStyle="#fff";g.lineWidth=2;g.beginPath();g.moveTo(0,70);g.lineTo(128,100);g.stroke()}
+  else if(type==="bars"){const gr=g.createLinearGradient(0,0,N,0);gr.addColorStop(0,"#222");gr.addColorStop(1,"#ddd");g.fillStyle=gr;g.fillRect(0,0,N,N);for(let i=0;i<6;i++){g.fillStyle=i%2?"#fff":"#000";g.fillRect(10+i*8,70,4,50)}g.fillStyle="#fff";g.fillRect(80,75,36,6);g.fillRect(80,95,36,16)}
+  else{for(let y=0;y<8;y++)for(let x=0;x<8;x++){g.fillStyle=(x+y)%2?"#e8e8e8":"#262626";g.fillRect(x*16,y*16,16,16)}}
+  const d=g.getImageData(0,0,N,N).data,a=new Float32Array(N*N);
+  for(let i=0;i<N*N;i++)a[i]=d[i*4];return a;
+}
+function addNoise(src,type,pct){
+  const o=Float32Array.from(src),p=pct/100;
+  for(let i=0;i<o.length;i++){
+    if(type==="gauss")o[i]=Math.min(255,Math.max(0,o[i]+gn()*pct*1.6));
+    else if(type==="salt"){if(rnd()<p)o[i]=255}
+    else if(type==="pepper"){if(rnd()<p)o[i]=0}
+    else if(type==="sp"){const r=rnd();if(r<p/2)o[i]=255;else if(r<p)o[i]=0}
+  }return o;
+}
+function kernelGauss(k){const s=k/3,r=k>>1,w=[];let t=0;for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){const v=Math.exp(-(x*x+y*y)/(2*s*s));w.push(v);t+=v}return w.map(v=>v/t)}
+function px(a,x,y,pad){
+  if(x<0||x>=N||y<0||y>=N){if(pad==="zero")return 0;x=x<0?-x:x>=N?2*N-2-x:x;y=y<0?-y:y>=N?2*N-2-y:y}
+  return a[y*N+x];
+}
+function conv(a,K,k,pad){const r=k>>1,o=new Float32Array(N*N);for(let y=0;y<N;y++)for(let x=0;x<N;x++){let s=0,i=0;for(let j=-r;j<=r;j++)for(let m=-r;m<=r;m++)s+=K[i++]*px(a,x+m,y+j,pad);o[y*N+x]=s}return o}
+function applyFilter(a,name,k,Q,pad){
+  if(name==="gauss")return conv(a,kernelGauss(k),k,pad);
+  if(name==="mean")return conv(a,Array(k*k).fill(1/(k*k)),k,pad);
+  if(name==="sobel"||name==="log"){
+    const o=new Float32Array(N*N);
+    if(name==="log"){const b=conv(a,kernelGauss(3),3,pad),L=conv(b,[0,1,0,1,-4,1,0,1,0],3,pad);for(let i=0;i<o.length;i++)o[i]=Math.min(255,Math.abs(L[i])*2);return o}
+    const gx=conv(a,[-1,0,1,-2,0,2,-1,0,1],3,pad),gy=conv(a,[-1,-2,-1,0,0,0,1,2,1],3,pad);
+    for(let i=0;i<o.length;i++)o[i]=Math.min(255,Math.hypot(gx[i],gy[i])/2);return o;
+  }
+  const r=k>>1,n=k*k,o=new Float32Array(N*N),w=new Float32Array(n);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    let i=0;for(let j=-r;j<=r;j++)for(let m=-r;m<=r;m++)w[i++]=px(a,x+m,y+j,pad);
+    let v=0;
+    if(name==="harm"){let s=0;for(let t=0;t<n;t++)s+=1/Math.max(w[t],1);v=n/s}
+    else if(name==="contra"){let u=0,d=0;for(let t=0;t<n;t++){const z=Math.max(w[t],1)/255;u+=Math.pow(z,Q+1);d+=Math.pow(z,Q)}v=255*u/d}
+    else if(name==="geo"){let s=0;for(let t=0;t<n;t++)s+=Math.log(Math.max(w[t],1));v=Math.exp(s/n)}
+    else{const s=Array.from(w).sort((p,q)=>p-q);v=name==="median"?s[n>>1]:name==="max"?s[n-1]:name==="min"?s[0]:(s[0]+s[n-1])/2}
+    o[y*N+x]=v;
+  }return o;
+}
+function psnr(a,b){let e=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];e+=d*d}e/=a.length;return e<1e-9?Infinity:10*Math.log10(65025/e)}
+function draw(id,a){const c=$(id),g=c.getContext("2d"),im=g.createImageData(N,N);for(let i=0;i<N*N;i++){const v=Math.max(0,Math.min(255,a[i]));im.data[i*4]=im.data[i*4+1]=im.data[i*4+2]=v;im.data[i*4+3]=255}g.putImageData(im,0,0)}
+const fmt=v=>isFinite(v)?" · PSNR "+v.toFixed(1)+" dB":"";
+function run(newNoise){
+  $("amtv").textContent=$("amt").value+"%";$("qv").textContent=$("q").value;
+  if(newNoise)seed=Math.floor(Math.random()*1e9);
+  const k=+$("k").value,Q=+$("q").value,pad=$("pad").value,sd=seed;
+  orig=makeImage($("img").value);seed=sd;noisy=addNoise(orig,$("noise").value,+$("amt").value);
+  const A=$("fa").value,B=$("fb").value,edge=n=>n==="sobel"||n==="log";
+  const ra=applyFilter(noisy,A,k,Q,pad),rb=applyFilter(noisy,B,k,Q,pad);
+  draw("c0",orig);draw("c1",noisy);draw("c2",ra);draw("c3",rb);
+  const lab=n=>FILTERS[n]+(edge(n)?"":" "+k+"×"+k)+(n==="contra"?" (Q="+Q+")":"");
+  $("la").textContent="A: "+lab(A);$("lb").textContent="B: "+lab(B);
+  $("p1").textContent=$("noise").value==="none"?"":fmt(psnr(orig,noisy));
+  $("p2").textContent=edge(A)?"":fmt(psnr(orig,ra));$("p3").textContent=edge(B)?"":fmt(psnr(orig,rb));
+}
+for(const id of["img","noise","amt","fa","fb","k","q","pad"])$(id).addEventListener("input",()=>run(false));
+$("renoise").onclick=()=>run(true);
+
+function load(p){
+  const d={img:"shapes",noise:"none",amt:8,A:"mean",B:"gauss",k:3,Q:1.5,pad:"zero",...p};
+  $("img").value=d.img;$("noise").value=d.noise;$("amt").value=d.amt;$("fa").value=d.A;$("fb").value=d.B;$("k").value=d.k;$("q").value=d.Q;$("pad").value=d.pad;
+  run(false);switchTab("play");scrollTo({top:0,behavior:"smooth"});
+}
+const DEMOS=[
+ {t:"Mean vs Gaussian blur",p:{A:"mean",B:"gauss",k:7},pts:["Both blur, but the Gaussian weights closer pixels more, so the blur looks smoother and more natural.","Compare the edge of the white circle and the PSNR values.","Change the kernel to 3×3, 5×5 and 7×7: a bigger kernel means a stronger blur."]},
+ {t:"Median vs mean on salt-and-pepper noise",p:{noise:"sp",amt:10,A:"mean",B:"median",k:3},pts:["The mean filter smears each noisy pixel into its neighbours; the dots become grey blotches.","The median ignores extreme values, so the dots vanish and edges stay sharp.","Raise the noise to 25% and check where the median starts to fail."]},
+ {t:"Harmonic mean: salt works, pepper fails",p:{noise:"salt",amt:10,A:"harm",B:"mean",k:3},pts:["Salt (value 255) gives a tiny reciprocal, so it barely affects the harmonic mean.","Now switch the noise to Pepper: a value near 0 has a huge reciprocal, so the result is unstable.","Compare with the arithmetic mean in both cases."]},
+ {t:"Contraharmonic: the sign of Q decides",p:{noise:"pepper",amt:10,A:"contra",B:"contra",Q:1.5,k:3},pts:["Positive Q removes pepper noise. Negative Q removes salt noise. It cannot remove both.","Change Q to 0 (arithmetic mean) and −1 (harmonic mean) and watch the result change.","Try salt noise with Q = −1.5."]},
+ {t:"Boundary handling",p:{A:"mean",B:"mean",k:7,pad:"zero",img:"checker"},pts:["With zero padding, pixels outside the image count as black, so the borders darken.","Switch the border handling to Mirroring and compare the edges of the result.","Increase the kernel size: the darker band gets wider."]}
+];
+const PRAC=[
+ {t:"Pepper noise (10%). Which filter setting removes it best?",p:{noise:"pepper",amt:10,A:"contra",B:"contra",Q:1.5},o:["Contraharmonic with Q = +1.5","Contraharmonic with Q = −1.5","Harmonic mean"],c:0,e:"Positive Q removes pepper. Negative Q removes salt. The harmonic mean (Q = −1) is unstable with dark pixels."},
+ {t:"Gaussian noise (10%). Compare the mean and geometric mean filters at 3×3. Which statement fits best?",p:{noise:"gauss",amt:10,A:"mean",B:"geo"},o:["Geometric mean smooths the noise but loses less detail than the arithmetic mean","Geometric mean makes the image sharper than the original","Both give exactly the same result"],c:0,e:"The geometric mean removes Gaussian-type noise and preserves edge detail better than the arithmetic mean."},
+ {t:"Salt noise (10%). Which filter makes the image darker?",p:{noise:"salt",amt:10,A:"max",B:"min"},o:["Max filter","Min filter","Both brighten the image"],c:1,e:"The min filter replaces each pixel with the darkest neighbour. This removes salt but expands dark regions. The max filter does the opposite."},
+ {t:"Salt-and-pepper noise (10%). Compare the median with the contraharmonic (Q = 1.5). Which one removes BOTH kinds of noise?",p:{noise:"sp",amt:10,A:"median",B:"contra",Q:1.5},o:["Median","Contraharmonic","Neither"],c:0,e:"Contraharmonic removes only one kind at a time, depending on the sign of Q. The median handles both."},
+ {t:"Use the Mean filter with no noise. What happens to the blur when the kernel grows from 3×3 to 7×7?",p:{A:"mean",B:"mean",k:7},o:["The image gets blurrier and fine detail is lost","The image gets sharper","Nothing changes"],c:0,e:"A larger kernel averages more neighbours, so smoothing increases and fine details disappear."},
+ {t:"Compare Sobel on the noisy image against the Laplacian of Gaussian (Gaussian noise, 10%). Which is less affected by noise?",p:{noise:"gauss",amt:10,A:"sobel",B:"log"},o:["Laplacian of Gaussian, because it smooths first","Sobel, because it never uses neighbours","They look identical"],c:0,e:"The Gaussian step in LoG lowers noise before the Laplacian highlights edges."}
+];
+const MLQ=[
+ {t:"Which type of learning uses labeled input–output pairs?",o:["Supervised learning","Unsupervised learning","Reinforcement learning"],c:0,e:"Supervised learning trains on labeled data to predict outputs for new inputs."},
+ {t:"Predicting house prices is an example of…",o:["Classification","Regression","Clustering"],c:1,e:"Regression predicts numerical values. Classification predicts categories."},
+ {t:"Customer segmentation without predefined labels is…",o:["Clustering (unsupervised)","Regression","Q-Learning"],c:0,e:"Clustering groups similar items without labels. K-Means is a common algorithm."},
+ {t:"A model that learns the noise in its training data and generalizes badly is…",o:["Underfitting","Overfitting","Regularized"],c:1,e:"Overfitting reduces generalization to new, unseen data."},
+ {t:"In reinforcement learning, an agent learns by…",o:["Grouping unlabeled data","Receiving rewards or penalties from an environment","Reducing the number of features"],c:1,e:"The goal is to maximize cumulative reward over time."},
+ {t:"Which is a dimensionality reduction method?",o:["K-Means","Linear Regression","Principal Component Analysis"],c:2,e:"PCA simplifies data while preserving its structure."}
+];
+let score={};
+function mcq(list,cont,key,withSetup){
+  $(cont).innerHTML=(key==="prac"||key==="ml"?`<p class="score" id="sc-${key}">Score: 0 / ${list.length}</p>`:"")+list.map((q,i)=>`<div class="panel ex"><h3><span class="tag s">Q${i+1}</span>${q.t}</h3>${withSetup?`<button class="b alt" data-load="${i}">Load setup in Playground</button>`:""}<div class="opts">${q.o.map((x,j)=>`<button data-q="${i}" data-o="${j}">${x}</button>`).join("")}</div><p class="fb" id="fb-${key}${i}"></p></div>`).join("");
+  score[key]={};
+  $(cont).onclick=e=>{
+    const b=e.target.closest("button");if(!b)return;
+    if(b.dataset.load!==undefined){load(list[+b.dataset.load].p);return}
+    if(b.dataset.q===undefined)return;
+    const i=+b.dataset.q,j=+b.dataset.o,q=list[i];
+    if(score[key][i]!==undefined)return;
+    score[key][i]=j===q.c;
+    b.classList.add(j===q.c?"ok":"no");
+    $(cont).querySelectorAll(`button[data-q="${i}"]`)[q.c].classList.add("ok");
+    $("fb-"+key+i).textContent=(j===q.c?"Correct. ":"Not quite. ")+q.e;
+    $("sc-"+key).textContent="Score: "+Object.values(score[key]).filter(Boolean).length+" / "+list.length;
+  };
+}
+$("demo").innerHTML=`<p class="note">Instructor-led: click “Load setup”, then walk through the talking points live.</p>`+DEMOS.map((d,i)=>`<div class="panel ex demo"><h3><span class="tag">Demo ${i+1}</span>${d.t}</h3><button class="b" data-d="${i}">Load setup in Playground</button><ul class="pts">${d.pts.map(x=>`<li>${x}</li>`).join("")}</ul></div>`).join("");
+$("demo").onclick=e=>{const b=e.target.closest("button[data-d]");if(b)load(DEMOS[+b.dataset.d].p)};
+mcq(PRAC,"prac","prac",true);mcq(MLQ,"ml","ml",false);
+function switchTab(t){document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected",b.dataset.t===t));document.querySelectorAll("main>section").forEach(s=>s.hidden=s.id!==t)}
+document.querySelector("nav").onclick=e=>{const b=e.target.closest("button");if(b)switchTab(b.dataset.t)};
+$("fa").value="mean";$("fb").value="median";$("noise").value="sp";run(false);
+</script>
+</body>
+</html>
